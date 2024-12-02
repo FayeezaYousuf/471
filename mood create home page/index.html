@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Utility Hub</title>
+    <style>
+        body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    background-size: cover;
+    background-repeat: no-repeat;
+}
+
+.navbar {
+    background: #333;
+    color: white;
+    padding: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.navbar button {
+    margin-left: 10px;
+    background: #444;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    cursor: pointer;
+}
+
+.navbar button:hover {
+    background: #555;
+}
+
+#main-content {
+    padding: 20px;
+}
+
+.hidden {
+    display: none;
+}
+
+#wallpaper-preview {
+    margin-top: 10px;
+    width: 100%;
+    max-height: 300px;
+    overflow: hidden;
+}
+
+#wallpaper-preview img {
+    width: 100%;
+}
+
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <h1>Utility Hub</h1>
+        <div>
+            <button onclick="setSection('wallpaper')">Wallpaper</button>
+            <button onclick="setSection('timer')">Timer</button>
+            <button onclick="setSection('notes')">Notes</button>
+            <button onclick="setSection('music')">Music</button>
+            <button onclick="setSection('youtube')">YouTube</button>
+        </div>
+    </div>
+
+    <div id="main-content">
+        <!-- Wallpaper Section -->
+        <section id="wallpaper-section">
+            <h2>Set Wallpaper</h2>
+            <input type="file" id="upload-wallpaper" accept="image/*" onchange="uploadWallpaper(event)">
+            <p>Upload an image to set it as your background.</p>
+        </section>
+        
+
+        <!-- Timer Section -->
+        <section id="timer-section" class="hidden">
+            <h2>Create Timer</h2>
+            <input type="number" id="timer-input" placeholder="Seconds">
+            <button onclick="startTimer()">Start Timer</button>
+            <div id="timer-display"></div>
+        </section>
+
+        <!-- Notes Section -->
+        <section id="notes-section" class="hidden">
+            <h2>Notes</h2>
+            <textarea id="note-text" placeholder="Write a note..."></textarea>
+            <button onclick="saveNote()">Save Note</button>
+            <div id="saved-notes"></div>
+        </section>
+
+        <!-- Music Section -->
+        <section id="music-section" class="hidden">
+            <h2>Play Music</h2>
+            <input type="file" id="music-upload" accept="audio/*" onchange="playMusic(event)">
+            <audio id="audio-player" controls></audio>
+        </section>
+
+        <!-- YouTube Section -->
+        <section id="youtube-section" class="hidden">
+            <h2>YouTube Search</h2>
+            <input type="text" id="youtube-search" placeholder="Search videos">
+            <button onclick="searchYouTube()">Search</button>
+            <div id="youtube-results"></div>
+        </section>
+    </div>
+
+    <script>
+
+function setSection(section) {
+    document.querySelectorAll('section').forEach(sec => sec.classList.add('hidden'));
+    document.getElementById(`${section}-section`).classList.remove('hidden');
+}
+
+// Wallpaper
+function uploadWallpaper(event) {
+    const file = event.target.files[0];
+    if (!file) {
+        alert("No file selected!");
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('wallpaper', file);
+
+    fetch('upload_wallpaper.php', {
+        method: 'POST',
+        body: formData,
+    })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error("Failed to upload wallpaper.");
+            }
+            return response.text(); // The file path returned by the server
+        })
+        .then(filePath => {
+            if (filePath.startsWith("uploads/")) {
+                document.body.style.backgroundImage = `url(${filePath})`;
+            } else {
+                alert(filePath); // Show error message from the server
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert("Error uploading wallpaper. Please try again.");
+        });
+}
+
+
+
+
+// Timer
+function startTimer() {
+    const input = document.getElementById('timer-input').value;
+    let time = parseInt(input, 10);
+    const display = document.getElementById('timer-display');
+    display.textContent = time;
+
+    const interval = setInterval(() => {
+        time--;
+        display.textContent = time;
+        if (time <= 0) clearInterval(interval);
+    }, 1000);
+}
+
+// Notes
+function saveNote() {
+    const noteText = document.getElementById('note-text').value;
+    if (!noteText) return alert("Note cannot be empty!");
+
+    fetch('notes.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `note=${encodeURIComponent(noteText)}`,
+    })
+        .then(response => response.text())
+        .then(message => {
+            alert(message);
+            loadNotes();
+        })
+        .catch(error => console.error('Error saving note:', error));
+}
+
+function loadNotes() {
+    fetch('notes.php')
+        .then(response => response.json())
+        .then(notes => {
+            const notesDiv = document.getElementById('saved-notes');
+            notesDiv.innerHTML = '';
+            notes.forEach(note => {
+                const noteDiv = document.createElement('div');
+                noteDiv.textContent = note.content;
+                notesDiv.appendChild(noteDiv);
+            });
+        })
+        .catch(error => console.error('Error loading notes:', error));
+}
+
+// Call loadNotes() on page load
+document.addEventListener('DOMContentLoaded', loadNotes);
+
+
+// Music
+function playMusic(event) {
+    const file = event.target.files[0];
+    const audioPlayer = document.getElementById('audio-player');
+    audioPlayer.src = URL.createObjectURL(file);
+    audioPlayer.play();
+}
+
+// YouTube
+function searchYouTube() {
+    const query = document.getElementById('youtube-search').value;
+    const results = document.getElementById('youtube-results');
+    results.innerHTML = `<iframe width="560" height="315" src="https://www.youtube.com/embed?listType=search&list=${query}" frameborder="0" allowfullscreen></iframe>`;
+}
+
+    </script>
+
+
+</body>
+</html>
